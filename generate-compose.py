@@ -14,6 +14,9 @@ def generate_compose(output_file, num_clients):
             "LOGGING_LEVEL=DEBUG",
         ],
         "networks": ["testing_net"],
+        "volumes": [
+            "./server/config.ini:/config.ini",
+        ],
     }
 
     for i in range(1, num_clients + 1):
@@ -27,6 +30,9 @@ def generate_compose(output_file, num_clients):
             ],
             "networks": ["testing_net"],
             "depends_on": ["server"],
+            "volumes": [
+                "./client/config.yaml:/config.yaml",
+            ],
         }
 
     compose = {
