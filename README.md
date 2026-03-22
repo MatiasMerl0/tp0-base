@@ -193,3 +193,9 @@ Respetar el formato y contenido las entradas de logs descritas en los ejercicios
   Este script valida la cantidad de argumentos que se le pasan.
 
 - El archivo `generate-compose.py` valida que se haya pasado un número de clientes válido y crea el archivo *compose* utilizando la librería **pyYAML** para facilitar su generación.
+
+
+## Ejercicio 2
+
+Se agregaron volúmenes para las configuraciones en el script de Python. Se eliminó el seteo de envars para logging porque toman precedencia sobre las configs y los tests no pasan.  
+También se corrió el script para modificar el archivo `docker-compose-dev.yaml`.
