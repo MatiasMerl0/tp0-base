@@ -179,3 +179,17 @@ Se proveen [pruebas automáticas](https://github.com/7574-sistemas-distribuidos/
 
 El incumplimiento de las pruebas es condición de desaprobación, pero su cumplimiento no es suficiente para la aprobación.  Se pide a los alumnos leer atentamente y **tener en cuenta** los criterios de corrección informados  [en el campus](https://campusgrado.fi.uba.ar/mod/page/view.php?id=73393).
 Respetar el formato y contenido las entradas de logs descritas en los ejercicios, pues son las que se chequean en cada uno de los tests.
+
+# Soluciones
+
+## Ejercicio 1
+
+- El archivo `generar-compose.sh` se ejecuta con:
+
+  ```bash
+  sh generar-compose.sh <archivo_salida> <cantidad_clientes>
+  ```
+
+  Este script valida la cantidad de argumentos que se le pasan.
+
+- El archivo `generate-compose.py` valida que se haya pasado un número de clientes válido y crea el archivo *compose* utilizando la librería **pyYAML** para facilitar su generación.
