@@ -37,3 +37,11 @@ docker-compose-down:
 docker-compose-logs:
 	docker compose -f docker-compose-dev.yaml logs -f
 .PHONY: docker-compose-logs
+
+sigterm-server:
+	docker kill --signal=SIGTERM server
+.PHONY: sigterm-server
+
+sigterm-client:
+	docker kill --signal=SIGTERM client$(id)
+.PHONY: sigterm-client
