@@ -215,3 +215,26 @@ El response se guarda y luego se compara que sea igual al mensaje enviado. Depen
 - Se agrega en `client.go` un `context` que al recibir la SIGTERM a través de un channel, ejecuta en una goroutine un `cancel()` que le avisa al context. Ese contexto se usa en el `dialContext` para saber si se tiene que crear un nuevo socket para la conexión y tambien para chequear `ctx.done()` para saber si hace falta seguir esperando en el "sleep" de cada iteración. De esa forma se puede interrumpir el sleep, lo cual es útil para salir gracefully porque el flag del `docker compose down` `-t 1` le da solo un segundo para terminar gracefully antes de mandar un SIGKILL, lo que quiere decir que si se está durmiendo mientras se manda la SIGTERM, no dejaría salir gracefully.
 
 - Adicionalmente se revisa que el envío de mensajes en el cliente sea sin error (por ejemplo un error de red) y en caso de que haya se sale gracefully cerrando el socket correctamente.
+
+## Ejercicio 5
+
+Se creo un protocolo de comunicacion en el cual se manda un header de **4 bytes** en **big endian** donde se informa la longitud del mensaje enviado. En el servidor evitamos **short writes** usando el metodo `sendall` que itera internamente hasta mandar los *n* bytes. El metodo para recibir mensajes usa un `_recv_exact` donde se itera hasta recibir exactamente *n* bytes que se van poniendo en un buffer. Esos *n* bytes se obtienen del header.  
+El protocolo en go es el mismo, se manda el header con el tamaño del mensaje en **big endian** y luego se loopea hasta mandar todos los mensajes. Para el receive se hace un buffer de tamaño length (leido del header) y se hace un `io.ReadFull` para llenar ese buffer (internamente loopea hasta llenar el buffer).  
+
+El payload de la apuesta es un string con los campos separados por `\n`:
+
+```
+NOMBRE\nAPELLIDO\nDOCUMENTO\nNACIMIENTO\nNUMERO
+```
+
+La respuesta del servidor es un mensaje conteniendo `"OK"` o `"ERR"`.  
+
+El protocolo se implemento en los módulos:
+- **Cliente (Go)**: `client/common/protocol.go` con funciones `SendMessage` y `ReceiveMessage`.
+- **Servidor (Python)**: `server/common/protocol.py` con funciones `send_message` y `receive_message`.  
+
+Cada cliente se levanta con la config `.env` en el directorio `/envs`, se conecta al servidor, envía la apuesta serializada con el protocolo mencionado, espera la confirmación y loguea el resultado. Si hay algun problema de conexion en el medio, loguea un error y cierra el socket.  
+
+El servidor recibe la conexión del cliente, deserializa los campos de la apuesta usando el protocolo, crea un objeto `Bet` y lo persiste con `store_bets`. Responde `"OK"` si la operación fue exitosa o `"ERR"` en caso de error.
+
+El `generate-compose.py` se modifico para que use los env files en el directorio `/envs`
