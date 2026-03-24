@@ -14,8 +14,8 @@ services:
     container_name: client1
     image: client:latest
     entrypoint: /client
-    environment:
-    - CLI_ID=1
+    env_file:
+    - ./envs/client1.env
     networks:
     - testing_net
     depends_on:

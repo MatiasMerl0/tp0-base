@@ -23,9 +23,7 @@ def generate_compose(output_file, num_clients):
             "container_name": f"client{i}",
             "image": "client:latest",
             "entrypoint": "/client",
-            "environment": [
-                f"CLI_ID={i}",
-            ],
+            "env_file": [f"./envs/client{i}.env"],
             "networks": ["testing_net"],
             "depends_on": ["server"],
             "volumes": [

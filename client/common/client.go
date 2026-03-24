@@ -1,14 +1,12 @@
 package common
 
 import (
-	"bufio"
 	"context"
 	"fmt"
 	"net"
 	"os"
 	"os/signal"
 	"syscall"
-	"time"
 
 	"github.com/op/go-logging"
 )
@@ -19,8 +17,11 @@ var log = logging.MustGetLogger("log")
 type ClientConfig struct {
 	ID            string
 	ServerAddress string
-	LoopAmount    int
-	LoopPeriod    time.Duration
+	Name          string
+	Surname       string
+	Document      string
+	Birthdate     string
+	Number        string
 }
 
 // Client Entity that encapsulates how
@@ -28,7 +29,6 @@ type Client struct {
 	config ClientConfig
 	conn   net.Conn
 	ctx    context.Context
-	cancel context.CancelFunc
 }
 
 // NewClient Initializes a new client receiving the configuration
@@ -51,9 +51,6 @@ func NewClient(config ClientConfig) *Client {
 	return client
 }
 
-// CreateClientSocket Initializes client socket. In case of
-// failure, error is printed in stdout/stderr and exit 1
-// is returned
 func (c *Client) createClientSocket() error {
 	dialer := net.Dialer{}
 	conn, err := dialer.DialContext(c.ctx, "tcp", c.config.ServerAddress)
@@ -69,48 +66,38 @@ func (c *Client) createClientSocket() error {
 	return nil
 }
 
-// StartClientLoop Send messages to the client until some time threshold is met
 func (c *Client) StartClientLoop() {
-	// There is an autoincremental msgID to identify every message sent
-	// Messages if the message amount threshold has not been surpassed
-	for msgID := 1; msgID <= c.config.LoopAmount; msgID++ {
-		if err := c.createClientSocket(); err != nil {
-			return
-		}
-
-		// TODO: Modify the send to avoid short-write
-		sendMsg := fmt.Sprintf("[CLIENT %v] Message N°%v", c.config.ID, msgID)
-		log.Infof("action: send_message | result: in_progress | client_id: %v | msg: %v", c.config.ID, sendMsg)
-		if _, err := fmt.Fprintf(c.conn, "%v\n", sendMsg); err != nil {
-			log.Errorf("action: send_message | result: fail | client_id: %v | error: %v", c.config.ID, err)
-			c.conn.Close()
-			return
-		}
-		log.Infof("action: send_message | result: success | client_id: %v | msg: %v", c.config.ID, sendMsg)
-
-		log.Infof("action: receive_message | result: in_progress | client_id: %v", c.config.ID)
-		msg, err := bufio.NewReader(c.conn).ReadString('\n')
-		c.conn.Close()
-
-		if err != nil {
-			log.Errorf("action: receive_message | result: fail | client_id: %v | error: %v",
-				c.config.ID,
-				err,
-			)
-			return
-		}
-
-		log.Infof("action: receive_message | result: success | client_id: %v | msg: %v",
-			c.config.ID,
-			msg,
-		)
-
-		// We "sleep" until the next loop iteration or until a SIGTERM makes the context done.
-		select {
-		case <-c.ctx.Done():
-			return
-		case <-time.After(c.config.LoopPeriod):
-		}
+	if err := c.createClientSocket(); err != nil {
+		return
 	}
-	log.Infof("action: loop_finished | result: success | client_id: %v", c.config.ID)
+
+	bet := fmt.Sprintf("BET\n%s\n%s\n%s\n%s\n%s\n%s",
+		c.config.ID,
+		c.config.Name,
+		c.config.Surname,
+		c.config.Document,
+		c.config.Birthdate,
+		c.config.Number,
+	)
+
+	if err := SendMessage(c.conn, bet); err != nil {
+		log.Errorf("action: apuesta_enviada | result: fail | client_id: %v | error: %v", c.config.ID, err)
+		c.conn.Close()
+		return
+	}
+
+	response, err := ReceiveMessage(c.conn)
+	c.conn.Close()
+
+	if err != nil {
+		log.Errorf("action: apuesta_enviada | result: fail | client_id: %v | error: %v", c.config.ID, err)
+		return
+	}
+
+	if response == "OK" {
+		log.Infof("action: apuesta_enviada | result: success | dni: %v | numero: %v",
+			c.config.Document, c.config.Number)
+	} else {
+		log.Errorf("action: apuesta_enviada | result: fail | client_id: %v | response: %v", c.config.ID, response)
+	}
 }
