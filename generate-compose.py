@@ -53,8 +53,8 @@ def generate_compose(output_file, num_clients):
 if __name__ == "__main__":
     output_file = sys.argv[1]
 
-    if not sys.argv[2].isdigit() or int(sys.argv[2]) < 1:
-        print("Error: la cantidad de clientes debe ser un numero mayor a cero")
+    if not sys.argv[2].isdigit() or int(sys.argv[2]) < 0:
+        print("Error: la cantidad de clientes debe ser un numero mayor o igual a cero")
         sys.exit(1)
 
     num_clients = int(sys.argv[2])
