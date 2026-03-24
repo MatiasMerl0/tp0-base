@@ -199,3 +199,11 @@ Respetar el formato y contenido las entradas de logs descritas en los ejercicios
 
 Se agregaron volúmenes para las configuraciones en el script de Python. Se eliminó el seteo de envars para logging porque toman precedencia sobre las configs y los tests no pasan.  
 También se corrió el script para modificar el archivo `docker-compose-dev.yaml`.
+
+## Ejercicio 3
+
+Se agregó un `netcat.Dockerfile` que define una imagen a partir de la imagen base **alpine**, que luego instala **netcat**. Setea el *entrypoint* a `nc` para que ese sea el comando que se ejecuta al hacer `docker run`.
+
+También se agrega el script `validar-echo-server.sh` que buildea la imagen de `netcat.Dockerfile` y luego la ejecuta con `docker run`. El comando `docker run` se ejecuta con los flags `--rm` para que se borre luego de ejecutado, el flag `-i` para que tome la entrada de stdin (que la mandamos a través del comando echo), el flag `--network` para conectarse a la misma red que los containers del compose y se pasan los valores `-w 3 "$SERVER" "$PORT"` al container, que al tener el *entrypoint* en `nc` recibe los parámetros mencionados.
+
+El response se guarda y luego se compara que sea igual al mensaje enviado. Dependiendo el resultado de esa comparación, se imprimen mensajes de error o éxito.
