@@ -207,3 +207,11 @@ Se agregó un `netcat.Dockerfile` que define una imagen a partir de la imagen ba
 También se agrega el script `validar-echo-server.sh` que buildea la imagen de `netcat.Dockerfile` y luego la ejecuta con `docker run`. El comando `docker run` se ejecuta con los flags `--rm` para que se borre luego de ejecutado, el flag `-i` para que tome la entrada de stdin (que la mandamos a través del comando echo), el flag `--network` para conectarse a la misma red que los containers del compose y se pasan los valores `-w 3 "$SERVER" "$PORT"` al container, que al tener el *entrypoint* en `nc` recibe los parámetros mencionados.
 
 El response se guarda y luego se compara que sea igual al mensaje enviado. Dependiendo el resultado de esa comparación, se imprimen mensajes de error o éxito.
+
+## Ejercicio 4
+
+- Se agrega al `server.py` un handler que toma la señal SIGTERM y modifica un booleano que sale del bucle que acepta conexiones. Luego cierra el socket, desbloqueando el `accept()`.
+
+- Se agrega en `client.go` un `context` que al recibir la SIGTERM a través de un channel, ejecuta en una goroutine un `cancel()` que le avisa al context. Ese contexto se usa en el `dialContext` para saber si se tiene que crear un nuevo socket para la conexión y tambien para chequear `ctx.done()` para saber si hace falta seguir esperando en el "sleep" de cada iteración. De esa forma se puede interrumpir el sleep, lo cual es útil para salir gracefully porque el flag del `docker compose down` `-t 1` le da solo un segundo para terminar gracefully antes de mandar un SIGKILL, lo que quiere decir que si se está durmiendo mientras se manda la SIGTERM, no dejaría salir gracefully.
+
+- Adicionalmente se revisa que el envío de mensajes en el cliente sea sin error (por ejemplo un error de red) y en caso de que haya se sale gracefully cerrando el socket correctamente.
