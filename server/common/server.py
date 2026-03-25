@@ -1,6 +1,7 @@
 import signal
 import socket
 import logging
+import threading
 
 from .protocol import send_message, receive_message
 from .lottery import Lottery
@@ -13,6 +14,7 @@ class Server:
         self._server_socket.listen(listen_backlog)
         self._running = True
         self._lottery = Lottery(total_agencies)
+        self._worker_threads = []
 
         signal.signal(signal.SIGTERM, self._sigterm_handler)
 
@@ -25,10 +27,14 @@ class Server:
         while self._running:
             try:
                 client_sock = self.__accept_new_connection()
-                self.__handle_client_connection(client_sock)
+                worker = threading.Thread(target=self.__handle_client_connection, args=(client_sock,))
+                worker.start()
+                self._worker_threads.append(worker)
             except OSError:
                 break
 
+        for worker in self._worker_threads:
+            worker.join(timeout=1)
         logging.info("action: close_server_socket | result: success")
 
     def __handle_client_connection(self, client_sock):

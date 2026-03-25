@@ -1,4 +1,5 @@
 import logging
+import threading
 
 from .utils import Bet, store_bets, load_bets, has_won
 
@@ -7,6 +8,7 @@ class Lottery:
     def __init__(self, total_agencies):
         self._total_agencies = total_agencies
         self._finished_agencies = set()
+        self._lock = threading.Lock()
 
     def handle_message(self, msg):
         fields = msg.split('\n')
@@ -29,20 +31,24 @@ class Lottery:
         for i in range(count):
             parts = fields[2 + i].split(',')
             bets.append(Bet(agency, parts[0], parts[1], parts[2], parts[3], parts[4]))
-        store_bets(bets)
+        with self._lock:
+            store_bets(bets)
         logging.info(f'action: apuesta_recibida | result: success | cantidad: {count}')
         return 'OK'
 
     def _handle_finished(self, agency):
-        self._finished_agencies.add(agency)
+        should_log_sorteo = False
+        with self._lock:
+            self._finished_agencies.add(agency)
+            should_log_sorteo = len(self._finished_agencies) == self._total_agencies
         logging.info(f'action: finished | result: success | agency: {agency}')
-        if len(self._finished_agencies) == self._total_agencies:
+        if should_log_sorteo:
             logging.info('action: sorteo | result: success')
         return 'OK'
 
     def _handle_winners(self, agency):
-        if len(self._finished_agencies) < self._total_agencies:
-            return 'NOT_READY'
-
-        winners = [bet.document for bet in load_bets() if bet.agency == int(agency) and has_won(bet)]
+        with self._lock:
+            if len(self._finished_agencies) < self._total_agencies:
+                return 'NOT_READY'
+            winners = [bet.document for bet in load_bets() if bet.agency == int(agency) and has_won(bet)]
         return ','.join(winners)
