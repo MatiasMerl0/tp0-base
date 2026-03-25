@@ -238,3 +238,13 @@ Cada cliente se levanta con la config `.env` en el directorio `/envs`, se conect
 El servidor recibe la conexión del cliente, deserializa los campos de la apuesta usando el protocolo, crea un objeto `Bet` y lo persiste con `store_bets`. Responde `"OK"` si la operación fue exitosa o `"ERR"` en caso de error.
 
 El `generate-compose.py` se modifico para que use los env files en el directorio `/envs`
+
+## Ejercicio 6
+
+Se cambia el protocolo para enviar mensajes (desde la capa de aplicación, la de transporte se mantiene igual) para soportar el envío por **batches** y se eliminó el parseo anterior.
+
+Se creó el módulo `lottery` tanto en el cliente como en el server que se encargan del parseo de los mensajes.
+
+- En `lottery.go` se hace la lectura del CSV y devuelve error si falla. También se hace la serialización de los batches para mandar al server.
+- En `client.go` se usan esos métodos para formar el mensaje y mandarlo de a batches al server, reutilizando la misma conexión TCP para no hacer múltiples procesos de *handshake*.
+- En `lottery.py` se hace el parseo de los mensajes con las bets y se guardan a menos que haya algún error. Si hay algún error, se descarta el batch entero.
