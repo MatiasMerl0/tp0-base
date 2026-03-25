@@ -182,6 +182,8 @@ Respetar el formato y contenido las entradas de logs descritas en los ejercicios
 
 # Soluciones
 
+**Aclaracion**: Los commits fueron squasheados en cada branch para mas prolijidad en la historia de git sin commits temporales ni intermedios.
+
 ## Ejercicio 1
 
 - El archivo `generar-compose.sh` se ejecuta con:
@@ -259,3 +261,11 @@ Se agregan dos nuevos tipos de mensaje al protocolo de aplicación: `FINISHED` y
 Del lado del server, la clase `Lottery` trackea qué agencias terminaron en un `set`. Cuando todas las agencias enviaron `FINISHED`, loguea `sorteo | result: success`. Al recibir un `WINNERS`, si el sorteo ya ocurrió, filtra las apuestas con `load_bets()` y `has_won()` por agencia y devuelve los DNIs ganadores separados por coma.
 
 El número de agencias se pasa al server como variable de entorno `TOTAL_AGENCIES` desde `generate-compose.py`.
+
+## Ejercicio 8
+
+Se agrego en el server una ejecucion de un thread por cada conexion generada, para seguir aceptando conexiones mientras se procesa una peticion. Al cerrar el server se joinean todos los threads para que no queden colgando.  
+
+El `gil` no permite que el interprete de python ejecute codigo python paralelamente lo cual lo hace poco eficiente para tareas `cpu-bound` (que requieren mucho uso del cpu, computos grandes). Sin embargo para nuestro caso, esta tarea es `I/O bound`, asi que el `gil` no representa un problema en la performance ya que la mayor parte del tiempo el thread se la pasa "esperando" y no computando. El server corre en la version de python `3.9`, pero si lo hiciera de la `3.13` en adelante podríamos desactivar el `gil` ya que esas versiones lo permiten.
+
+Se agrego un `lock` en las funciones provistas por las catedras, que no son `thread-safe`, y en el set que usamos para ver si todas las agencias terminaron. De esta forma nos encargamos que un solo proceso acceda al recurso a la vez. El `lock` es muy restrictivo, lo que tiene implicancias en la performance. Tal vez se podría haber implementado algo similar a un read/write lock pero por la cercanía de la fecha de entrega no lo hice.
