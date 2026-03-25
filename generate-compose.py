@@ -23,11 +23,14 @@ def generate_compose(output_file, num_clients):
             "container_name": f"client{i}",
             "image": "client:latest",
             "entrypoint": "/client",
-            "env_file": [f"./envs/client{i}.env"],
+            "environment": [
+                f"CLI_ID={i}",
+            ],
             "networks": ["testing_net"],
             "depends_on": ["server"],
             "volumes": [
                 "./client/config.yaml:/config.yaml",
+                f"./.data/agency-{i}.csv:/data/agency.csv",
             ],
         }
 

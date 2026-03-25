@@ -33,11 +33,7 @@ func InitConfig() (*viper.Viper, error) {
 	v.BindEnv("id")
 	v.BindEnv("server", "address")
 	v.BindEnv("log", "level")
-	v.BindEnv("bet", "name")
-	v.BindEnv("bet", "surname")
-	v.BindEnv("bet", "document")
-	v.BindEnv("bet", "birthdate")
-	v.BindEnv("bet", "number")
+	v.BindEnv("batch.maxamount")
 
 	// Try to read configuration from config file. If config file
 	// does not exists then ReadInConfig will fail but configuration
@@ -99,11 +95,7 @@ func main() {
 	clientConfig := common.ClientConfig{
 		ServerAddress: v.GetString("server.address"),
 		ID:            v.GetString("id"),
-		Name:          v.GetString("bet.name"),
-		Surname:       v.GetString("bet.surname"),
-		Document:      v.GetString("bet.document"),
-		Birthdate:     v.GetString("bet.birthdate"),
-		Number:        v.GetString("bet.number"),
+		MaxAmount:     v.GetInt("batch.maxamount"),
 	}
 
 	client := common.NewClient(clientConfig)

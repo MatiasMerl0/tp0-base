@@ -2,7 +2,6 @@ package common
 
 import (
 	"context"
-	"fmt"
 	"net"
 	"os"
 	"os/signal"
@@ -13,26 +12,18 @@ import (
 
 var log = logging.MustGetLogger("log")
 
-// ClientConfig Configuration used by the client
 type ClientConfig struct {
 	ID            string
 	ServerAddress string
-	Name          string
-	Surname       string
-	Document      string
-	Birthdate     string
-	Number        string
+	MaxAmount     int
 }
 
-// Client Entity that encapsulates how
 type Client struct {
 	config ClientConfig
 	conn   net.Conn
 	ctx    context.Context
 }
 
-// NewClient Initializes a new client receiving the configuration
-// as a parameter
 func NewClient(config ClientConfig) *Client {
 	ctx, cancel := context.WithCancel(context.Background())
 	client := &Client{
@@ -67,37 +58,53 @@ func (c *Client) createClientSocket() error {
 }
 
 func (c *Client) StartClientLoop() {
+	bets, err := ReadBets("/data/agency.csv") // mounted in container volume
+	if err != nil {
+		log.Errorf("action: read_bets | result: fail | client_id: %v | error: %v", c.config.ID, err)
+		return
+	}
+
 	if err := c.createClientSocket(); err != nil {
 		return
 	}
+	defer c.conn.Close()
 
-	bet := fmt.Sprintf("BET\n%s\n%s\n%s\n%s\n%s\n%s",
-		c.config.ID,
-		c.config.Name,
-		c.config.Surname,
-		c.config.Document,
-		c.config.Birthdate,
-		c.config.Number,
-	)
+	for i := 0; i < len(bets); i += c.config.MaxAmount {
+		select {
+		case <-c.ctx.Done(): // Graceful shutdown between batches
+			log.Infof("action: shutdown | result: success | client_id: %v", c.config.ID)
+			return
+		default:
+		}
 
-	if err := SendMessage(c.conn, bet); err != nil {
-		log.Errorf("action: apuesta_enviada | result: fail | client_id: %v | error: %v", c.config.ID, err)
-		c.conn.Close()
-		return
+		end := i + c.config.MaxAmount
+		if end > len(bets) { // If its last batch
+			end = len(bets)
+		}
+		batch := bets[i:end]
+
+		msg := SerializeBatch(c.config.ID, batch)
+		if len(msg) > MaxBatchBytes {
+			log.Errorf("action: apuesta_enviada | result: fail | client_id: %v | error: batch exceeds 8kB limit", c.config.ID)
+			return
+		}
+
+		if err := SendMessage(c.conn, msg); err != nil {
+			log.Errorf("action: apuesta_enviada | result: fail | client_id: %v | error: %v", c.config.ID, err)
+			return
+		}
+
+		response, err := ReceiveMessage(c.conn)
+		if err != nil {
+			log.Errorf("action: apuesta_enviada | result: fail | client_id: %v | error: %v", c.config.ID, err)
+			return
+		}
+
+		if response != "OK" {
+			log.Errorf("action: apuesta_enviada | result: fail | client_id: %v | response: %v", c.config.ID, response)
+			return
+		}
 	}
 
-	response, err := ReceiveMessage(c.conn)
-	c.conn.Close()
-
-	if err != nil {
-		log.Errorf("action: apuesta_enviada | result: fail | client_id: %v | error: %v", c.config.ID, err)
-		return
-	}
-
-	if response == "OK" {
-		log.Infof("action: apuesta_enviada | result: success | dni: %v | numero: %v",
-			c.config.Document, c.config.Number)
-	} else {
-		log.Errorf("action: apuesta_enviada | result: fail | client_id: %v | response: %v", c.config.ID, response)
-	}
+	log.Infof("action: apuesta_enviada | result: success | client_id: %v | bets_sent: %v", c.config.ID, len(bets))
 }
