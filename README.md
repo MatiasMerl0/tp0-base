@@ -248,3 +248,14 @@ Se creó el módulo `lottery` tanto en el cliente como en el server que se encar
 - En `lottery.go` se hace la lectura del CSV y devuelve error si falla. También se hace la serialización de los batches para mandar al server.
 - En `client.go` se usan esos métodos para formar el mensaje y mandarlo de a batches al server, reutilizando la misma conexión TCP para no hacer múltiples procesos de *handshake*.
 - En `lottery.py` se hace el parseo de los mensajes con las bets y se guardan a menos que haya algún error. Si hay algún error, se descarta el batch entero.
+
+## Ejercicio 7
+
+Se agregan dos nuevos tipos de mensaje al protocolo de aplicación: `FINISHED` y `WINNERS`. La comunicación se divide en dos partes:
+
+- **Parte 1:** cada cliente envía todos sus batches, luego envía un mensaje `FINISHED\n{agency_id}` para notificar que terminó. El server responde `OK` y el cliente cierra la conexión.
+- **Parte 2:** cada cliente espera 2 segundos (implementar un exponential backoff me parecía innecesario para el scope de este trabajo) y reconecta al server para enviar `WINNERS\n{agency_id}`. Si el server responde `NOT_READY` (no todas las agencias terminaron), el cliente espera 2 segundos y reintenta. La espera usa un `select` con `time.After` para que sea interruptible por SIGTERM. Cuando el server responde con los DNIs ganadores, el cliente los cuenta y loguea `consulta_ganadores`.
+
+Del lado del server, la clase `Lottery` trackea qué agencias terminaron en un `set`. Cuando todas las agencias enviaron `FINISHED`, loguea `sorteo | result: success`. Al recibir un `WINNERS`, si el sorteo ya ocurrió, filtra las apuestas con `load_bets()` y `has_won()` por agencia y devuelve los DNIs ganadores separados por coma.
+
+El número de agencias se pasa al server como variable de entorno `TOTAL_AGENCIES` desde `generate-compose.py`.
