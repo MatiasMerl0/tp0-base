@@ -57,3 +57,13 @@ func SerializeBatch(agency string, bets []Bet) string {
 	}
 	return strings.Join(lines, "\n")
 }
+
+// Agency tells server it's finished
+func SerializeFinished(agency string) string {
+	return "FINISHED\n" + agency
+}
+
+// Agency asks server for winners
+func SerializeWinnersQuery(agency string) string {
+	return "WINNERS\n" + agency
+}

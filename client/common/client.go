@@ -2,10 +2,13 @@ package common
 
 import (
 	"context"
+	"fmt"
 	"net"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
+	"time"
 
 	"github.com/op/go-logging"
 )
@@ -64,8 +67,17 @@ func (c *Client) StartClientLoop() {
 		return
 	}
 
-	if err := c.createClientSocket(); err != nil {
+	if err := c.sendBets(bets); err != nil {
 		return
+	}
+
+	c.queryWinners()
+}
+
+// sendBets sends all bets in batches, then notifies the server with FINISHED.
+func (c *Client) sendBets(bets []Bet) error {
+	if err := c.createClientSocket(); err != nil {
+		return err
 	}
 	defer c.conn.Close()
 
@@ -73,7 +85,7 @@ func (c *Client) StartClientLoop() {
 		select {
 		case <-c.ctx.Done(): // Graceful shutdown between batches
 			log.Infof("action: shutdown | result: success | client_id: %v", c.config.ID)
-			return
+			return c.ctx.Err()
 		default:
 		}
 
@@ -86,25 +98,77 @@ func (c *Client) StartClientLoop() {
 		msg := SerializeBatch(c.config.ID, batch)
 		if len(msg) > MaxBatchBytes {
 			log.Errorf("action: apuesta_enviada | result: fail | client_id: %v | error: batch exceeds 8kB limit", c.config.ID)
-			return
+			return fmt.Errorf("batch exceeds 8kB limit")
 		}
 
 		if err := SendMessage(c.conn, msg); err != nil {
 			log.Errorf("action: apuesta_enviada | result: fail | client_id: %v | error: %v", c.config.ID, err)
-			return
+			return err
 		}
 
 		response, err := ReceiveMessage(c.conn)
 		if err != nil {
 			log.Errorf("action: apuesta_enviada | result: fail | client_id: %v | error: %v", c.config.ID, err)
-			return
+			return err
 		}
 
 		if response != "OK" {
 			log.Errorf("action: apuesta_enviada | result: fail | client_id: %v | response: %v", c.config.ID, response)
-			return
+			return fmt.Errorf("server responded with: %s", response)
 		}
 	}
 
+	if err := SendMessage(c.conn, SerializeFinished(c.config.ID)); err != nil {
+		log.Errorf("action: finished | result: fail | client_id: %v | error: %v", c.config.ID, err)
+		return err
+	}
+
+	if _, err := ReceiveMessage(c.conn); err != nil {
+		log.Errorf("action: finished | result: fail | client_id: %v | error: %v", c.config.ID, err)
+		return err
+	}
+
 	log.Infof("action: apuesta_enviada | result: success | client_id: %v | bets_sent: %v", c.config.ID, len(bets))
+	return nil
+}
+
+// queryWinners reconnects to the server and polls for lottery results.
+func (c *Client) queryWinners() {
+	for {
+		select { // wait for 2 seconds but allow shutdown
+		case <-c.ctx.Done():
+			log.Infof("action: shutdown | result: success | client_id: %v", c.config.ID)
+			return
+		case <-time.After(2 * time.Second): // exponencial backoff seemed like overkill
+		}
+
+		if err := c.createClientSocket(); err != nil {
+			return
+		}
+
+		if err := SendMessage(c.conn, SerializeWinnersQuery(c.config.ID)); err != nil {
+			log.Errorf("action: consulta_ganadores | result: fail | client_id: %v | error: %v", c.config.ID, err)
+			c.conn.Close()
+			return
+		}
+
+		response, err := ReceiveMessage(c.conn)
+		c.conn.Close()
+
+		if err != nil {
+			log.Errorf("action: consulta_ganadores | result: fail | client_id: %v | error: %v", c.config.ID, err)
+			return
+		}
+
+		if response == "NOT_READY" {
+			continue
+		}
+
+		winners := 0
+		if response != "" {
+			winners = len(strings.Split(response, ","))
+		}
+		log.Infof("action: consulta_ganadores | result: success | cant_ganadores: %v", winners)
+		return
+	}
 }

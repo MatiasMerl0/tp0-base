@@ -11,6 +11,7 @@ def generate_compose(output_file, num_clients):
         "entrypoint": "python3 /main.py",
         "environment": [
             "PYTHONUNBUFFERED=1",
+            f"TOTAL_AGENCIES={num_clients}",
         ],
         "networks": ["testing_net"],
         "volumes": [

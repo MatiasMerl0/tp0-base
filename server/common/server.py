@@ -7,12 +7,12 @@ from .lottery import Lottery
 
 
 class Server:
-    def __init__(self, port, listen_backlog):
+    def __init__(self, port, listen_backlog, total_agencies):
         self._server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self._server_socket.bind(('', port))
         self._server_socket.listen(listen_backlog)
         self._running = True
-        self._lottery = Lottery()
+        self._lottery = Lottery(total_agencies)
 
         signal.signal(signal.SIGTERM, self._sigterm_handler)
 

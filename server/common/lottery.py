@@ -1,24 +1,48 @@
 import logging
 
-from .utils import Bet, store_bets
+from .utils import Bet, store_bets, load_bets, has_won
 
 
 class Lottery:
-    # Parse the message and process the batch of bets.
+    def __init__(self, total_agencies):
+        self._total_agencies = total_agencies
+        self._finished_agencies = set()
+
     def handle_message(self, msg):
         fields = msg.split('\n')
         msg_type = fields[0]
 
-        if msg_type != 'BATCH':
-            logging.error(f'action: handle_message | result: fail | error: unknown message type {msg_type}')
-            return 'ERR'
+        if msg_type == 'BATCH':
+            return self._handle_batch(fields[1:])
+        elif msg_type == 'FINISHED':
+            return self._handle_finished(fields[1])
+        elif msg_type == 'WINNERS':
+            return self._handle_winners(fields[1])
 
-        agency = fields[1]
-        count = int(fields[2])
+        logging.error(f'action: handle_message | result: fail | error: unknown message type {msg_type}')
+        return 'ERR'
+
+    def _handle_batch(self, fields):
+        agency = fields[0]
+        count = int(fields[1])
         bets = []
         for i in range(count):
-            parts = fields[3 + i].split(',')
+            parts = fields[2 + i].split(',')
             bets.append(Bet(agency, parts[0], parts[1], parts[2], parts[3], parts[4]))
         store_bets(bets)
         logging.info(f'action: apuesta_recibida | result: success | cantidad: {count}')
         return 'OK'
+
+    def _handle_finished(self, agency):
+        self._finished_agencies.add(agency)
+        logging.info(f'action: finished | result: success | agency: {agency}')
+        if len(self._finished_agencies) == self._total_agencies:
+            logging.info('action: sorteo | result: success')
+        return 'OK'
+
+    def _handle_winners(self, agency):
+        if len(self._finished_agencies) < self._total_agencies:
+            return 'NOT_READY'
+
+        winners = [bet.document for bet in load_bets() if bet.agency == int(agency) and has_won(bet)]
+        return ','.join(winners)
